@@ -1,5 +1,12 @@
 # OpenTide
 
+> **I DO NOT SUPPORT ANYONE VIBE CODING RP GAMES OR MAKING ASSETS USING AI USING THIS TEMPLATE**
+
+## Coming features
+
+- [ ] Footstep sounds
+- [ ] Emote wheel
+
 **READ ME**
 This game was coded by me HOWEVER. This doc and some color palletes were AI generated I made the UI but I am color blind so I struggle a bit with colors and writing is hard >:(
 
