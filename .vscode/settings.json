@@ -1,0 +1,9 @@
+{
+  "luau-lsp.types.definitionFiles": {
+    "RoFlux": "types.d.luau",
+    "OpenTide": "OpenTideTypes.d.luau"
+  },
+  "luau-lsp.platform.type": "roblox",
+  "luau-lsp.sourcemap.enabled": true,
+  "luau-lsp.sourcemap.autogenerate": false
+}

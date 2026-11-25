@@ -1,0 +1,5 @@
+# Tools managed by Rokit (https://github.com/rojo-rbx/rokit). Add more with `rokit add <tool>`.
+
+[tools]
+roflux = "thekingofspace/RoFlux@0.0.3"
+luv = "thekingofspace/Luv@0.1.13"

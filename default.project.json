@@ -1,0 +1,31 @@
+{
+    "name": "OpenTide",
+    "ProjectID": "FlashStorm",
+    "Default": "ReplicatedStorage",
+    "ServerScriptService": {
+        "$Path": "src/Server"
+    },
+
+    "ReplicatedFirst": {
+        "$Path": "src/First"
+    },
+
+    "StarterPlayer": {
+        "LoadCharacterAppearance": true,
+        "StarterPlayerScripts": {
+            "$ClassName": "StarterPlayerScripts",
+            "$Path": "src/Client"
+        }
+    },
+    "ReplicatedStorage": {
+        "Packages": {
+            "$Path": "Packages"
+        },
+        "MainPackages": {
+            "$Path": "CustomPackages"
+        },
+        "Shared": {
+            "$Path": "src/Shared"
+        }
+    }
+}
