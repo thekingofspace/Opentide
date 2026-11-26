@@ -14,7 +14,8 @@ const Catalog = require(script.Parent.Catalog)
 const Config = require(script.Parent.Config)
 const Format = require(script.Parent.Format)
 const Gizmo = require(script.Parent.Gizmo)
-const View = require(ReplicatedStorage.Shared.GUI_Elements.Customize)
+const UI = require(ReplicatedStorage.Shared.UI)
+const View = UI.view("Customize")
 const PropPlacer = require(ReplicatedStorage.Shared.PropPlacer)
 const Cache = require(ReplicatedStorage.Shared.PropPlacer.Cache)
 const PropData = require(ReplicatedStorage.Shared.PropData)
@@ -618,9 +619,6 @@ const function leaveTools()
 end
 
 const function slotBar(): Bridges.SlotBarView | false
-    if ToolMode == "Edit" and not Equipping then
-        return false
-    end
     const Saved = ToolsClient.slots()
     const Cards: { Bridges.SlotCard } = {}
     for Slot = 1, Tools.Config.Slots do
@@ -638,7 +636,7 @@ const function slotBar(): Bridges.SlotBarView | false
         })
     end
     return {
-        Title = if Equipping then "pick a slot to put it in" else "your hotbar, press a slot to edit it",
+        Title = if Equipping then "pick a slot to put it in" elseif ToolMode == "Edit" then "press a slot to edit that tool instead" else "your hotbar, press a slot to edit it",
         Slots = Cards,
     }
 end
@@ -653,6 +651,9 @@ const function askText(): string | false
     const Name = if Def then string.lower(Def.Name) else "this tool"
     if Waiting.Kind == "Clear" then
         return `empty slot {Waiting.Slot}? the {Name} in it will be taken out`
+    end
+    if ToolMode == "Edit" then
+        return `edit the {Name} in slot {Waiting.Slot} instead? changes you have not equipped will be lost`
     end
     return `edit the {Name} in slot {Waiting.Slot}? it will not change until you press equip`
 end
@@ -1581,17 +1582,18 @@ const function onTools(Action: string, Value: any)
             run(function()
                 const Ok, Problem = ToolsClient.setSlot(Value, Sending)
                 toast(if Ok then `Put it in slot {Value}` else Problem, Ok)
+                if Ok and ToolMode == "Edit" then
+                    leaveEdit()
+                end
             end)
             return
-        elseif ToolMode ~= "Edit" then
-            if ToolsClient.slots()[tostring(Value)] then
-                ToolAsk = { Kind = "Load", Slot = Value }
-                Sounds.play("Confirm")
-            else
-                toast("That slot is empty, pick a tool and press equip", true)
-            end
+        elseif ToolsClient.slots()[tostring(Value)] then
+            ToolAsk = { Kind = "Load", Slot = Value }
+            Sounds.play("Confirm")
+        else
+            toast("That slot is empty, pick a tool and press equip", true)
         end
-    elseif Action == "SlotClear" and type(Value) == "number" and ToolMode ~= "Edit" then
+    elseif Action == "SlotClear" and type(Value) == "number" and not Equipping then
         ToolAsk = { Kind = "Clear", Slot = Value }
         Sounds.play("Confirm")
     elseif Action == "AskNo" then
@@ -1779,6 +1781,7 @@ function Menu.open()
     end
     Busy = true
     ToolsClient.unequipNow()
+    ToolsClient.unlinkAll()
     const Ok = Customize.enter()
     Busy = false
     if not Ok then
@@ -1839,7 +1842,7 @@ function Menu.start()
         DisplayOrder = 6,
     }) :: ScreenGui
     Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-    View:Open().Parent = Gui
+    UI.mount("Customize", Gui)
 
     Bridges.Nav:Bind(onNav)
     Bridges.Body:Bind(onBody)

@@ -1,9 +1,7 @@
 --!strict
 const Debris = game:GetService("Debris")
 const Players = game:GetService("Players")
-const RunService = game:GetService("RunService")
 const UserInputService = game:GetService("UserInputService")
-const TweenService = game:GetService("TweenService")
 const Workspace = game:GetService("Workspace")
 
 const Bullets = require(script.Bullets)
@@ -12,14 +10,11 @@ const Guns = {
     Bullets = Bullets,
     MuzzleName = "Muzzle",
     PathAttribute = "ToolPath",
-    DefaultFov = 70,
-    MaxPitch = math.rad(60),
     ReloadClip = 1.2,
     Poses = {
         Lower = "Down",
         Raise = "Up",
     } :: { [string]: string },
-    ZoomTime = 0.15,
     SoundRange = 250,
     Variance = 0.05,
 }
@@ -126,8 +121,7 @@ function Guns.shoot(Context: any): Bullets.Shot?
     if not Target then
         return nil
     end
-    const Aiming = Context.active("Aim")
-    const Degrees = if Aiming then (Stats.AimSpread or (Stats.Spread or 0) * 0.4) else (Stats.Spread or 0)
+    const Degrees = Stats.Spread or 0
     const Direction = spread((Target - Origin).Unit, Degrees)
     const Params = RaycastParams.new()
     Params.FilterType = Enum.RaycastFilterType.Exclude
@@ -144,20 +138,6 @@ function Guns.shoot(Context: any): Bullets.Shot?
     Bullets.fire(Shot)
     Context.fire(Shot)
     return Shot
-end
-
-const function zoom(Factor: number)
-    const Camera = Workspace.CurrentCamera
-    if Camera then
-        TweenService:Create(Camera, TweenInfo.new(Guns.ZoomTime), { FieldOfView = Guns.DefaultFov / math.max(Factor, 0.1) }):Play()
-    end
-end
-
-function Guns.setAim(Context: any, On: boolean)
-    if Context.active("Aim") ~= On then
-        Context.setActive("Aim", On)
-    end
-    zoom(if On then Context.stats().Zoom or 1 else 1)
 end
 
 function Guns.setPose(Context: any, Id: string, On: boolean)
@@ -183,48 +163,29 @@ function Guns.lowered(Context: any): boolean
     return false
 end
 
-const function jointOf(Part: Instance?, Name: string): (Motor6D | AnimationConstraint)?
-    const Found = if Part then Part:FindFirstChild(Name) else nil
-    if Found and (Found:IsA("Motor6D") or Found:IsA("AnimationConstraint")) then
-        return Found
+const function ammoText(Context: any): string?
+    const Size = Context.stats().Magazine
+    if type(Size) ~= "number" then
+        return nil
     end
-    return nil
+    return if Context.Data.Reloading then "..." else `{Context.Data.Ammo}/{math.floor(Size)}`
 end
 
-const function follow(Context: any)
-    const Character = Players.LocalPlayer.Character
-    if not Character then
-        return
-    end
-    if Guns.lowered(Context) or Context.Data.Reloading then
-        return
-    end
-    const Target = aimPoint(Context.stats().Range or 500, { Character })
-    if not Target then
-        return
-    end
-    const Arm = Character:FindFirstChild("RightUpperArm")
-    const Shoulder = jointOf(Arm, "RightShoulder")
-    if not Arm or not Arm:IsA("BasePart") or not Shoulder then
-        return
-    end
-    const Gap = Target - Arm.Position
-    const Pitch = math.clamp(math.asin(math.clamp(Gap.Unit.Y, -1, 1)), -Guns.MaxPitch, Guns.MaxPitch)
-    const Turn = CFrame.Angles(Pitch, 0, 0)
-    Shoulder.Transform *= Turn
-    const Other = jointOf(Character:FindFirstChild("LeftUpperArm"), "LeftShoulder")
-    if Other then
-        Other.Transform *= Turn
-    end
+const function isGun(Context: any): boolean
+    return Context ~= nil and type(Context.stats().Bullet) == "string"
 end
 
 const function ammoLabel(Context: any)
-    const Stats = Context.stats()
-    const Size = Stats.Magazine
-    if type(Size) ~= "number" then
+    const Paired = Context.Pair
+    if Paired and isGun(Paired.Right) and isGun(Paired.Left) then
+        const Text = `reload ({ammoText(Paired.Left) or "-"} | {ammoText(Paired.Right) or "-"})`
+        Paired.Main.setLabel("Reload", Text)
         return
     end
-    Context.setLabel("Reload", if Context.Data.Reloading then "reloading..." else `reload ({Context.Data.Ammo}/{math.floor(Size)})`)
+    const Text = ammoText(Context)
+    if Text then
+        Context.setLabel("Reload", if Context.Data.Reloading then "reloading..." else `reload ({Text})`)
+    end
 end
 
 function Guns.reload(Context: any)
@@ -247,6 +208,49 @@ function Guns.reload(Context: any)
     end)
 end
 
+function Guns.trigger(Context: any): boolean
+    if not Context or Guns.lowered(Context) or Context.Data.Reloading then
+        return false
+    end
+    const Stats = Context.stats()
+    if type(Stats.Magazine) == "number" and Context.Data.Ammo <= 0 then
+        Guns.reload(Context)
+        return false
+    end
+    const Now = os.clock()
+    if Now - (Context.Data.LastShot or 0) < (Stats.FireRate or 0.2) then
+        return false
+    end
+    Context.Data.LastShot = Now
+    if not Guns.shoot(Context) then
+        return false
+    end
+    if type(Stats.Magazine) == "number" then
+        Context.Data.Ammo -= 1
+        ammoLabel(Context)
+    end
+    return true
+end
+
+function Guns.runAction(Context: any, Id: string)
+    if not Context then
+        return
+    end
+    for _, Entry in Context.Def.Actions or {} do
+        if Entry.Id == Id then
+            if Entry.Toggle then
+                Context.States[Id] = not Context.States[Id]
+            end
+            const Hooks = Context.Def.client
+            const Run = if Hooks then Hooks.onAction else nil
+            if type(Run) == "function" then
+                Run(Context, Id, Context.States[Id] == true)
+            end
+            return
+        end
+    end
+end
+
 function Guns.client(): { [string]: any }
     return {
         onEquip = function(Context: any)
@@ -255,56 +259,47 @@ function Guns.client(): { [string]: any }
             const Stats = Context.stats()
             Context.Data.Ammo = if type(Stats.Magazine) == "number" then math.floor(Stats.Magazine) else 0
             ammoLabel(Context)
-            const Links: { RBXScriptConnection } = {}
-            table.insert(Links, UserInputService.InputBegan:Connect(function(Input: InputObject, Processed: boolean)
-                if not Processed and Input.UserInputType == Enum.UserInputType.MouseButton2 then
-                    Guns.setAim(Context, true)
-                end
-            end))
-            table.insert(Links, UserInputService.InputEnded:Connect(function(Input: InputObject)
-                if Input.UserInputType == Enum.UserInputType.MouseButton2 and Context.active("Aim") then
-                    Guns.setAim(Context, false)
-                end
-            end))
-            table.insert(Links, RunService.Stepped:Connect(function()
-                follow(Context)
-            end))
-            Context.Data.Links = Links
         end,
         onUnequip = function(Context: any)
             Context.Data.Live = false
-            for _, Link in Context.Data.Links or {} do
-                Link:Disconnect()
-            end
             for _, Set in Guns.Poses do
                 Context.popSet(Set)
             end
             Context.popSet("Held")
-            zoom(1)
         end,
-        onActivate = function(Context: any)
-            if Guns.lowered(Context) or Context.Data.Reloading then
+        onActivate = function(Context: any): boolean
+            return Guns.trigger(Context)
+        end,
+        onPairAction = function(Paired: any, Id: string)
+            const Both = isGun(Paired.Right) and isGun(Paired.Left)
+            if not Both then
+                for _, Context in { Paired.Main, Paired.Off } do
+                    Guns.runAction(Context, Id)
+                end
                 return
             end
-            const Stats = Context.stats()
-            if type(Stats.Magazine) == "number" and Context.Data.Ammo <= 0 then
-                Guns.reload(Context)
+            if Id == "Reload" then
+                Guns.reload(Paired.Right)
+                Guns.reload(Paired.Left)
                 return
             end
-            const Now = os.clock()
-            if Now - (Context.Data.LastShot or 0) < (Stats.FireRate or 0.2) then
+            if not Guns.Poses[Id] then
                 return
             end
-            Context.Data.LastShot = Now
-            if Guns.shoot(Context) and type(Stats.Magazine) == "number" then
-                Context.Data.Ammo -= 1
-                ammoLabel(Context)
+            const Steps = Paired.Data.Steps or {}
+            Paired.Data.Steps = Steps
+            const Step = ((Steps[Id] or 0) + 1) % 4
+            Steps[Id] = Step
+            for Pose in Guns.Poses do
+                if Pose ~= Id then
+                    Steps[Pose] = 0
+                end
             end
+            Guns.setPose(Paired.Right, Id, Step == 1 or Step == 3)
+            Guns.setPose(Paired.Left, Id, Step == 2 or Step == 3)
         end,
         onAction = function(Context: any, Id: string, On: boolean)
-            if Id == "Aim" then
-                Guns.setAim(Context, On)
-            elseif Id == "Reload" then
+            if Id == "Reload" then
                 Guns.reload(Context)
             elseif Guns.Poses[Id] then
                 Guns.setPose(Context, Id, On)

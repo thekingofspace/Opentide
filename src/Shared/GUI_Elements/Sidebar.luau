@@ -32,6 +32,7 @@ const ButtonHeight = 60
 const Gap = 10
 const Pad = 14
 const TrayWidth = ButtonWidth + Pad * 2
+const PerColumn = 8
 const TabWidth = 32
 const TabHeight = 84
 const EdgeGap = 16
@@ -42,7 +43,13 @@ const Slide = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Ou
 const Rendered: { vision.Vision } = {}
 
 const function heightFor(Count: number): number
-    return Pad * 2 + math.max(Count, 1) * ButtonHeight + math.max(Count - 1, 0) * Gap
+    const Rows = math.clamp(Count, 1, PerColumn)
+    return Pad * 2 + Rows * ButtonHeight + (Rows - 1) * Gap
+end
+
+const function widthFor(Count: number): number
+    const Columns = math.max(math.ceil(Count / PerColumn), 1)
+    return Pad * 2 + Columns * ButtonWidth + (Columns - 1) * Gap
 end
 
 const function button(View: ButtonView, List: Instance): { [any]: any }
@@ -107,7 +114,7 @@ const function render(List: Instance, Views: { ButtonView })
     end
     const Tray = List.Parent
     if Tray and Tray:IsA("GuiObject") then
-        Tray.Size = UDim2.fromOffset(TrayWidth, heightFor(#Views))
+        Tray.Size = UDim2.fromOffset(widthFor(#Views), heightFor(#Views))
     end
 end
 
@@ -182,11 +189,14 @@ return Scope:Capture({
         },
 
         {
-            ClassName = "UIListLayout",
+            ClassName = "UIGridLayout",
             FillDirection = Enum.FillDirection.Vertical,
-            HorizontalAlignment = Enum.HorizontalAlignment.Center,
+            FillDirectionMaxCells = PerColumn,
+            HorizontalAlignment = Enum.HorizontalAlignment.Left,
+            VerticalAlignment = Enum.VerticalAlignment.Top,
             SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, Gap)
+            CellSize = UDim2.fromOffset(ButtonWidth, ButtonHeight),
+            CellPadding = UDim2.fromOffset(Gap, Gap)
         }
     },
 

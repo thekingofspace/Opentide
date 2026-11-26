@@ -9,37 +9,68 @@ const A = Clips.angles
 const Rest: Clips.Poses = {
     RightUpperArm = A(0, 0, 0),
     RightLowerArm = A(0, 0, 0),
+    LeftUpperArm = A(0, 0, 0),
+    LeftLowerArm = A(0, 0, 0),
 }
 
 const Hold: Clips.Poses = {
-    UpperTorso = A(0, -8, 0),
-    RightUpperArm = A(90, 0, -8),
-    RightLowerArm = A(0, 0, 0),
-    LeftUpperArm = A(80, 0, 35),
-    LeftLowerArm = A(25, 0, 0),
+    UpperTorso = A(0, -20, 0),
+    RightUpperArm = A(53, 9, -61),
+    RightLowerArm = A(40, 0, 0),
+    RightHand = A(-13, 28, 18),
+    LeftUpperArm = A(39, -14, 41),
+    LeftLowerArm = A(59, 0, 0),
+    LeftHand = A(-63, 19, 57),
+}
+
+const HoldOne: Clips.Poses = {
+    RightUpperArm = A(45, 16, -24),
+    RightLowerArm = A(71, 0, 0),
+    RightHand = A(-25, 6, 23),
 }
 
 const Down: Clips.Poses = {
-    RightUpperArm = A(40, 0, -5),
-    RightLowerArm = A(25, 0, 0),
-    LeftUpperArm = A(10, 0, 0),
-    LeftLowerArm = A(10, 0, 0),
+    UpperTorso = A(0, -15, 0),
+    RightUpperArm = A(35, 10, -47),
+    RightLowerArm = A(30, 0, 0),
+    RightHand = A(-23, 8, 27),
+    LeftUpperArm = A(39, -1, 49),
+    LeftLowerArm = A(2, 0, 0),
+    LeftHand = A(-9, -4, -6),
+}
+
+const DownOne: Clips.Poses = {
+    RightUpperArm = A(3, 7, -8),
+    RightLowerArm = A(61, 0, 0),
+    RightHand = A(-18, 0, 8),
 }
 
 const Up: Clips.Poses = {
-    RightUpperArm = A(20, 0, -15),
-    RightLowerArm = A(150, 0, 0),
-    LeftUpperArm = A(10, 0, 0),
-    LeftLowerArm = A(10, 0, 0),
+    RightUpperArm = A(9, 58, -23),
+    RightLowerArm = A(147, 0, 0),
+    RightHand = A(61, 63, -42),
+    LeftUpperArm = A(0, 0, 3),
+    LeftLowerArm = A(15, 0, 0),
 }
 
-const Loading: Clips.Poses = {
-    UpperTorso = A(0, -8, 0),
-    RightUpperArm = A(50, 0, -30),
-    RightLowerArm = A(65, 0, 0),
-    RightHand = A(0, 0, 35),
-    LeftUpperArm = A(35, 0, 25),
-    LeftLowerArm = A(70, 0, 0),
+const Unload: Clips.Poses = {
+    UpperTorso = A(0, -10, 0),
+    RightUpperArm = A(27, 40, -40),
+    RightLowerArm = A(87, 0, 0),
+    RightHand = A(-60, 10, 17),
+    LeftUpperArm = A(-26, -11, 21),
+    LeftLowerArm = A(77, 0, 0),
+    LeftHand = A(-35, 4, -25),
+}
+
+const Load: Clips.Poses = {
+    UpperTorso = A(0, -10, 0),
+    RightUpperArm = A(27, 40, -40),
+    RightLowerArm = A(87, 0, 0),
+    RightHand = A(-60, 10, 17),
+    LeftUpperArm = A(34, -2, 63),
+    LeftLowerArm = A(2, 0, 0),
+    LeftHand = A(3, -36, -34),
 }
 
 const function clips(): { [string]: Tools.ClipValue }
@@ -56,10 +87,20 @@ const function clips(): { [string]: Tools.ClipValue }
             { Time = 0, Poses = Up },
             { Time = 1, Poses = Up },
         } },
+        Hold_OneHand = { Name = "Hold_OneHand", Loop = true, Priority = Enum.AnimationPriority.Idle, Frames = {
+            { Time = 0, Poses = HoldOne },
+            { Time = 1, Poses = HoldOne },
+        } },
+        Down_OneHand = { Name = "Down_OneHand", Loop = true, Priority = Enum.AnimationPriority.Movement, Frames = {
+            { Time = 0, Poses = DownOne },
+            { Time = 1, Poses = DownOne },
+        } },
         Reload = { Name = "Reload", Priority = Enum.AnimationPriority.Action, Frames = {
             { Time = 0, Poses = Hold },
-            { Time = 0.25, Poses = Loading },
-            { Time = 0.95, Poses = Loading },
+            { Time = 0.22, Poses = Unload },
+            { Time = 0.5, Poses = Unload },
+            { Time = 0.78, Poses = Load, Style = Enum.PoseEasingStyle.Cubic, Direction = Enum.PoseEasingDirection.Out },
+            { Time = 0.92, Poses = Load },
             { Time = 1.2, Poses = Hold },
         } },
         Equip = { Name = "Equip", Priority = Enum.AnimationPriority.Action, Frames = {
@@ -86,7 +127,6 @@ const function actions(): { Tools.Action }
         { Id = "Reload", Label = "reload", Key = Enum.KeyCode.R },
         { Id = "Lower", Label = "point down", Key = Enum.KeyCode.Q, Toggle = true },
         { Id = "Raise", Label = "point up", Key = Enum.KeyCode.E, Toggle = true },
-        { Id = "Aim", Label = "zoom (right click)", Toggle = true },
     }
 end
 
@@ -109,9 +149,7 @@ const Items: { [string]: Tools.ToolDef } = {
             FireVolume = 0.8,
             FireRate = 0.22,
             Spread = 2,
-            AimSpread = 0.5,
             Range = 500,
-            Zoom = 1.25,
             Magazine = 12,
             ReloadTime = 1.3,
         },
@@ -120,6 +158,7 @@ const Items: { [string]: Tools.ToolDef } = {
         Equip = "Equip",
         Unequip = "PutAway",
         Actions = actions(),
+        Dual = { Tags = { "Gun" }, With = { "Gun", "Shield" } },
         client = Guns.client(),
         server = Guns.server(),
     },
@@ -142,9 +181,7 @@ const Items: { [string]: Tools.ToolDef } = {
             FireVolume = 0.7,
             FireRate = 0.3,
             Spread = 0.8,
-            AimSpread = 0.2,
             Range = 600,
-            Zoom = 1.25,
             Magazine = 20,
             ReloadTime = 1.6,
         },
@@ -153,6 +190,7 @@ const Items: { [string]: Tools.ToolDef } = {
         Equip = "Equip",
         Unequip = "PutAway",
         Actions = actions(),
+        Dual = { Tags = { "Gun" }, With = { "Gun", "Shield" } },
         client = Guns.client(),
         server = Guns.server(),
     },

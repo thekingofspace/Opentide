@@ -10,6 +10,9 @@ export type SlotView = {
     Tool: string?,
     Model: Instance?,
     Active: boolean,
+    Linked: number?,
+    Linking: boolean?,
+    Linkable: boolean?,
 }
 
 export type ActionView = {

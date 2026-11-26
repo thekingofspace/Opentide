@@ -4,14 +4,16 @@ const ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 const vision = require(ReplicatedStorage.MainPackages.vision)
 const Bridges = require(script.Bridges)
-const Panel = require(ReplicatedStorage.Shared.GUI_Elements.BuildPanel)
-const Toast = require(ReplicatedStorage.Shared.GUI_Elements.Toast)
-const SaveMenu = require(ReplicatedStorage.Shared.GUI_Elements.SaveMenu)
+const UI = require(ReplicatedStorage.Shared.UI)
+const WidgetTypes = require(ReplicatedStorage.Shared.UI.WidgetTypes)
+const Panel = UI.view("BuildPanel")
+const Toast = UI.view("Toast")
+const SaveMenu = UI.view("SaveMenu")
 const Sounds = require(ReplicatedStorage.Shared.Sounds)
 
 export type Entry = Bridges.Entry
 export type ToolView = Bridges.ToolView
-export type SlotView = SaveMenu.Slot
+export type SlotView = WidgetTypes.SaveSlot
 export type ToastKind = "Error" | "Info"
 export type PageHandler = (Requested: number, Current: number) -> number?
 export type SearchHandler = (Query: string) -> number?
@@ -51,22 +53,19 @@ function PropPlacer.load(Parent: Instance?, Visible: boolean?): Instance
         warn("[PropPlacer] mount the panel in a ScreenGui with ZIndexBehavior Sibling or card contents render behind their backgrounds")
     end
 
-    const Made = Panel:Open()
-    Made.Parent = Host
+    const Made = UI.mount("BuildPanel", Host) or Host
     Root = Made
 
     const Overlay = Layer or Host
-    Toast:Open().Parent = Overlay
-    const Menu = SaveMenu:Open()
-    Menu.Parent = Overlay
-    SaveRoot = Menu
+    UI.mount("Toast", Overlay)
+    SaveRoot = UI.mount("SaveMenu", Overlay)
     return Made
 end
 
 function PropPlacer.unload()
-    Panel:Cleanup()
-    Toast:Cleanup()
-    SaveMenu:Cleanup()
+    UI.unmount("BuildPanel")
+    UI.unmount("Toast")
+    UI.unmount("SaveMenu")
     Root = nil
     SaveRoot = nil
     const Screen = Gui

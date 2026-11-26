@@ -1,7 +1,6 @@
 --!strict
 const ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-const vision = require(ReplicatedStorage.MainPackages.vision)
 const Bridges = require(script.Parent.Bridges)
 const Sounds = require(ReplicatedStorage.Shared.Sounds)
 
@@ -44,7 +43,7 @@ const Sidebar = {
 }
 
 const Entries: { [string]: Entry } = {}
-local View: vision.Vision? = nil
+local View: { [string]: (...any) -> any }? = nil
 local Open = true
 local Count = 0
 
@@ -86,7 +85,7 @@ const function refresh()
     Shown.Buttons(Views)
 end
 
-function Sidebar.attach(Given: vision.Vision)
+function Sidebar.attach(Given: { [string]: (...any) -> any })
     View = Given
     Given.Expanded(Open)
     refresh()

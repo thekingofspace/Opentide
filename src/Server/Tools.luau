@@ -4,6 +4,7 @@ const ReplicatedStorage = game:GetService("ReplicatedStorage")
 const RunService = game:GetService("RunService")
 
 const NetWatch = require(ReplicatedStorage.Shared.NetWatch)
+const signal = require(ReplicatedStorage.MainPackages.signal)
 const ToolData = require(ReplicatedStorage.Shared.Tools)
 const Format = require(ReplicatedStorage.Shared.Customize.Format)
 const PropConfig = require(ReplicatedStorage.Shared.PropData.Config)
@@ -15,15 +16,24 @@ export type Result = {
     Tool: string?,
 }
 
+type Hand = "Right" | "Left"
+
+export type Held = {
+    Tool: string,
+    Slot: string,
+    Model: Model,
+    Stats: { [string]: any },
+    Fired: number,
+}
+
 type Owner = {
     Player: Player,
     Data: PlayerData,
     Equipped: string?,
     Slot: string?,
-    Model: Model?,
-    Stats: { [string]: any },
-    Fired: number,
+    Hands: { [Hand]: Held },
     Holsters: { [string]: Model },
+    Hidden: { [string]: boolean },
     Stamp: number,
     Links: { RBXScriptConnection },
     Queued: boolean,
@@ -32,9 +42,12 @@ type Owner = {
 const Tools = {
     FolderName = "Tools",
     EquippedAttribute = "EquippedTool",
+    OffhandAttribute = "EquippedOffhand",
     MaxMuzzleGap = 15,
     FireSlack = 0.7,
     RelayRange = 400,
+    ShownAttribute = "ShownAlpha",
+    Changed = signal.new(),
 }
 
 const Net = NetWatch.Tools
@@ -56,6 +69,9 @@ const function dataOf(Owner: Owner): ToolsData
     if type(Data.Slots) ~= "table" then
         Data.Slots = {}
     end
+    if type(Data.Links) ~= "table" then
+        Data.Links = {}
+    end
     const Old = Data.Builds
     for Key, Value in Data.Slots :: { [string]: any } do
         if type(Value) == "string" then
@@ -67,6 +83,10 @@ const function dataOf(Owner: Owner): ToolsData
     end
     Data.Builds = nil
     return Data
+end
+
+const function linksOf(Owner: Owner): { [string]: string }
+    return dataOf(Owner).Links :: { [string]: string }
 end
 
 const function ownsFor(Owner: Owner): ToolData.Owns
@@ -87,11 +107,47 @@ const function buildOf(Owner: Owner, Slot: string): ToolBuild?
     return ToolData.clean(Saved.Tool, Saved, ownsFor(Owner))
 end
 
+const function partnerOf(Owner: Owner, Slot: string): string?
+    const Links = linksOf(Owner)
+    const Other = Links[Slot]
+    if not Other then
+        return nil
+    end
+    const Slots = dataOf(Owner).Slots
+    const First = Slots[Slot]
+    const Second = Slots[Other]
+    if Other == Slot or not First or not Second or not ToolData.canPair(First.Tool, Second.Tool) then
+        Links[Slot] = nil
+        if Links[Other] == Slot then
+            Links[Other] = nil
+        end
+        return nil
+    end
+    return Other
+end
+
+const function heldSlots(Owner: Owner): { [string]: boolean }
+    const Made: { [string]: boolean } = {}
+    for _, Item in Owner.Hands do
+        Made[Item.Slot] = true
+    end
+    return Made
+end
+
 const function push(Owner: Owner)
     const Data = dataOf(Owner)
+    for Slot in Data.Slots do
+        partnerOf(Owner, Slot)
+    end
+    const Hands: { [string]: string } = {}
+    for Hand, Item in Owner.Hands do
+        Hands[Hand] = Item.Slot
+    end
     Net:BroadcastTo(Owner.Player, "@Tools/State", {
         Slots = Data.Slots,
         Equipped = Owner.Slot,
+        Links = Data.Links,
+        Hands = Hands,
     })
 end
 
@@ -124,6 +180,25 @@ const function weld(Model: Model, Part: BasePart, Offset: CFrame)
     Joint.Parent = Root
 end
 
+const function conceal(Model: Model, On: boolean)
+    for _, Item in Model:GetDescendants() do
+        if not Item:IsA("BasePart") and not Item:IsA("Decal") then
+            continue
+        end
+        const Piece = Item :: BasePart | Decal
+        const Saved = Piece:GetAttribute(Tools.ShownAttribute)
+        if On then
+            if type(Saved) ~= "number" then
+                Piece:SetAttribute(Tools.ShownAttribute, Piece.Transparency)
+            end
+            Piece.Transparency = 1
+        elseif type(Saved) == "number" then
+            Piece.Transparency = Saved
+            Piece:SetAttribute(Tools.ShownAttribute, nil)
+        end
+    end
+end
+
 const function clearHolsters(Owner: Owner)
     for Id, Model in Owner.Holsters do
         Owner.Holsters[Id] = nil
@@ -137,8 +212,9 @@ const function holster(Owner: Owner)
     if not Character or not Character.Parent then
         return
     end
+    const Holding = heldSlots(Owner)
     for Slot in dataOf(Owner).Slots do
-        if Slot == Owner.Slot then
+        if Holding[Slot] or Owner.Hidden[Slot] then
             continue
         end
         const Build = buildOf(Owner, Slot)
@@ -177,54 +253,82 @@ const function hook(ToolId: string?, Name: string, ...: any)
 end
 
 const function unequip(Owner: Owner)
-    const Was = Owner.Equipped
-    const Model = Owner.Model
+    const Hands = Owner.Hands
+    Owner.Hands = {}
     Owner.Equipped = nil
     Owner.Slot = nil
-    Owner.Model = nil
-    Owner.Stats = {}
-    if Model then
-        Model:Destroy()
+    for _, Item in Hands do
+        Item.Model:Destroy()
+        hook(Item.Tool, "onUnequip", Owner.Player)
     end
     const Character = Owner.Player.Character
     if Character then
         Character:SetAttribute(Tools.EquippedAttribute, nil)
-    end
-    if Was then
-        hook(Was, "onUnequip", Owner.Player)
+        Character:SetAttribute(Tools.OffhandAttribute, nil)
     end
 end
 
-const function equip(Owner: Owner, Slot: string): string?
-    const Character = Owner.Player.Character
-    const Hand = if Character then Character:FindFirstChild("RightHand") else nil
-    const Humanoid = if Character then Character:FindFirstChildOfClass("Humanoid") else nil
-    if not Character or not Hand or not Hand:IsA("BasePart") or not Humanoid or Humanoid.Health <= 0 then
-        return "You need to be spawned in"
+const function place(Owner: Owner, Character: Model, Slot: string, Build: ToolBuild, Hand: Hand): string?
+    const Def = ToolData.get(Build.Tool)
+    const Part = Character:FindFirstChild(`{Hand}Hand`)
+    if not Def or not Part or not Part:IsA("BasePart") then
+        return "That tool could not be held"
     end
-    const Build = buildOf(Owner, Slot)
-    const ToolId = if Build then Build.Tool else ""
-    const Def = ToolData.get(ToolId)
-    if not Def or not Build then
-        return "That slot is empty"
-    end
-    if not ownsFor(Owner)(Def.Pack) then
-        return `You need the {Def.Pack} pack for that`
-    end
-    unequip(Owner)
     const Model = ToolData.assemble(Build)
     if not Model then
         return "That tool could not be built"
     end
-    Model.Name = `Equipped_{ToolId}`
-    weld(Model, Hand, ToolData.grip(Def, Hand))
+    Model.Name = `Equipped_{Hand}`
+    Model:SetAttribute("ToolSlot", Slot)
+    weld(Model, Part, ToolData.grip(Def, Part))
+    if Owner.Hidden[Slot] then
+        conceal(Model, true)
+    end
     Model.Parent = folderOf(Character)
-    Owner.Equipped = ToolId
+    Owner.Hands[Hand] = {
+        Tool = Build.Tool,
+        Slot = Slot,
+        Model = Model,
+        Stats = ToolData.stats(Build),
+        Fired = 0,
+    }
+    hook(Build.Tool, "onEquip", Owner.Player, Model, Hand)
+    return nil
+end
+
+const function equip(Owner: Owner, Slot: string): string?
+    const Character = Owner.Player.Character
+    const Humanoid = if Character then Character:FindFirstChildOfClass("Humanoid") else nil
+    if not Character or not Humanoid or Humanoid.Health <= 0 then
+        return "You need to be spawned in"
+    end
+    const Build = buildOf(Owner, Slot)
+    const Def = if Build then ToolData.get(Build.Tool) else nil
+    if not Def or not Build then
+        return "That slot is empty"
+    end
+    const Owns = ownsFor(Owner)
+    if not Owns(Def.Pack) then
+        return `You need the {Def.Pack} pack for that`
+    end
+    unequip(Owner)
+    const Partner = partnerOf(Owner, Slot)
+    const Other = if Partner then buildOf(Owner, Partner) else nil
+    const OtherDef = if Other then ToolData.get(Other.Tool) else nil
+    const Paired = Partner ~= nil and Other ~= nil and OtherDef ~= nil and Owns(OtherDef.Pack)
+    const MainHand, OffHand = ToolData.hands(Build.Tool, if Paired and Other then Other.Tool else nil)
+    const Problem = place(Owner, Character, Slot, Build, MainHand)
+    if Problem then
+        unequip(Owner)
+        return Problem
+    end
+    if Paired and Partner and Other then
+        place(Owner, Character, Partner, Other, OffHand)
+    end
+    Owner.Equipped = Build.Tool
     Owner.Slot = Slot
-    Owner.Model = Model
-    Owner.Stats = ToolData.stats(Build)
-    Character:SetAttribute(Tools.EquippedAttribute, ToolId)
-    hook(ToolId, "onEquip", Owner.Player, Model)
+    Character:SetAttribute(Tools.EquippedAttribute, Build.Tool)
+    Character:SetAttribute(Tools.OffhandAttribute, if Paired and Other then Other.Tool else nil)
     return nil
 end
 
@@ -236,12 +340,14 @@ const function rewire(Owner: Owner)
     task.defer(function()
         Owner.Queued = false
         const Character = Owner.Player.Character
-        const Model = Owner.Model
-        const Hand = if Character then Character:FindFirstChild("RightHand") else nil
-        const ToolId = Owner.Equipped
-        const Def = if ToolId then ToolData.get(ToolId) else nil
-        if Model and Def and Hand and Hand:IsA("BasePart") then
-            weld(Model, Hand, ToolData.grip(Def, Hand))
+        if Character then
+            for Hand, Item in Owner.Hands do
+                const Part = Character:FindFirstChild(`{Hand}Hand`)
+                const Def = ToolData.get(Item.Tool)
+                if Def and Part and Part:IsA("BasePart") then
+                    weld(Item.Model, Part, ToolData.grip(Def, Part))
+                end
+            end
         end
         holster(Owner)
     end)
@@ -254,7 +360,7 @@ const function watch(Owner: Owner, Character: Model)
     table.clear(Owner.Links)
     Owner.Equipped = nil
     Owner.Slot = nil
-    Owner.Model = nil
+    Owner.Hands = {}
     table.clear(Owner.Holsters)
     table.insert(Owner.Links, Character.ChildAdded:Connect(function(Child: Instance)
         if Child:IsA("BasePart") and Format.isBody(Child.Name) then
@@ -275,6 +381,21 @@ const function slotKey(Slot: unknown): string?
         return nil
     end
     return tostring(Slot)
+end
+
+const function refreshHeld(Owner: Owner, Touched: { string })
+    const Holding = heldSlots(Owner)
+    for _, Key in Touched do
+        if Holding[Key] then
+            const Main = Owner.Slot
+            if Main and dataOf(Owner).Slots[Main] then
+                equip(Owner, Main)
+            else
+                unequip(Owner)
+            end
+            return
+        end
+    end
 end
 
 const function set(Player: Player, Slot: unknown, Raw: unknown): Result
@@ -299,9 +420,9 @@ const function set(Player: Player, Slot: unknown, Raw: unknown): Result
         return fail("That tool could not be saved")
     end
     dataOf(Owner).Slots[Key] = Clean
-    if Owner.Slot == Key then
-        equip(Owner, Key)
-    end
+    Tools.Changed:Fire(Player, { Key })
+    partnerOf(Owner, Key)
+    refreshHeld(Owner, { Key })
     holster(Owner)
     push(Owner)
     return { Ok = true, Build = Clean }
@@ -316,11 +437,85 @@ const function clear(Player: Player, Slot: unknown): Result
     if not Key then
         return fail("That slot does not exist")
     end
-    if Owner.Slot == Key then
+    if heldSlots(Owner)[Key] then
         unequip(Owner)
     end
     dataOf(Owner).Slots[Key] = nil
+    Tools.Changed:Fire(Player, { Key })
+    partnerOf(Owner, Key)
     holster(Owner)
+    push(Owner)
+    return { Ok = true }
+end
+
+const function link(Player: Player, First: unknown, Second: unknown): Result
+    const Owner = Owners[Player]
+    if not Owner then
+        return fail("Your data is still loading")
+    end
+    const A = slotKey(First)
+    const B = slotKey(Second)
+    if not A or not B or A == B then
+        return fail("Pick two different slots")
+    end
+    const Slots = dataOf(Owner).Slots
+    const ToolA = Slots[A]
+    const ToolB = Slots[B]
+    if not ToolA or not ToolB then
+        return fail("Both slots need a tool")
+    end
+    const Holding = heldSlots(Owner)
+    if Holding[A] or Holding[B] then
+        return fail("Put your tool away to link it")
+    end
+    if not ToolData.canPair(ToolA.Tool, ToolB.Tool) then
+        const NameA = ToolData.get(ToolA.Tool)
+        const NameB = ToolData.get(ToolB.Tool)
+        return fail(`{if NameA then string.lower(NameA.Name) else "that"} and {if NameB then string.lower(NameB.Name) else "that"} can not be held together`)
+    end
+    const Links = linksOf(Owner)
+    for _, Key in { A, B } do
+        const Old = Links[Key]
+        if Old then
+            Links[Old] = nil
+            Links[Key] = nil
+        end
+    end
+    Links[A] = B
+    Links[B] = A
+    refreshHeld(Owner, { A, B })
+    holster(Owner)
+    push(Owner)
+    return { Ok = true }
+end
+
+const function unlink(Player: Player, Slot: unknown): Result
+    const Owner = Owners[Player]
+    const Key = slotKey(Slot)
+    if not Owner or not Key then
+        return fail("That slot does not exist")
+    end
+    const Links = linksOf(Owner)
+    const Other = Links[Key]
+    Links[Key] = nil
+    if Other then
+        Links[Other] = nil
+    end
+    const Holding = heldSlots(Owner)
+    if Holding[Key] or (Other and Holding[Other]) then
+        unequip(Owner)
+    end
+    holster(Owner)
+    push(Owner)
+    return { Ok = true }
+end
+
+const function unlinkAll(Player: Player): Result
+    const Owner = Owners[Player]
+    if not Owner then
+        return fail("Your data is still loading")
+    end
+    dataOf(Owner).Links = {}
     push(Owner)
     return { Ok = true }
 end
@@ -336,7 +531,7 @@ const function equipSlot(Player: Player, Slot: unknown): Result
     end
     Owner.Stamp = Now
     const Key = slotKey(Slot)
-    if not Key or Key == Owner.Slot or not dataOf(Owner).Slots[Key] then
+    if not Key or heldSlots(Owner)[Key] or not dataOf(Owner).Slots[Key] then
         unequip(Owner)
         holster(Owner)
         push(Owner)
@@ -348,7 +543,11 @@ const function equipSlot(Player: Player, Slot: unknown): Result
     if Problem then
         return fail(Problem)
     end
-    return { Ok = true, Tool = Owner.Equipped }
+    const Hands: { [string]: string } = {}
+    for Hand, Item in Owner.Hands do
+        Hands[Hand] = Item.Slot
+    end
+    return { Ok = true, Tool = Owner.Equipped, Hands = Hands } :: any
 end
 
 const function loadSave(Player: Player, Slot: unknown): Result
@@ -376,37 +575,57 @@ const function loadSave(Player: Player, Slot: unknown): Result
         end
     end
     unequip(Owner)
-    dataOf(Owner).Slots = Slots
+    const Data = dataOf(Owner)
+    const Old: { string } = {}
+    for Key in Data.Slots do
+        table.insert(Old, Key)
+    end
+    Data.Slots = Slots
+    Data.Links = {}
+    Tools.Changed:Fire(Player, Old)
     holster(Owner)
     push(Owner)
     return { Ok = true }
 end
 
-const function fire(Player: Player, Origin: unknown, Hit: unknown, Normal: unknown)
+const function heldBy(Owner: Owner, Hand: unknown): Held?
+    if Hand == "Right" or Hand == "Left" then
+        return Owner.Hands[Hand]
+    end
+    const Main = Owner.Slot
+    for _, Item in Owner.Hands do
+        if Item.Slot == Main then
+            return Item
+        end
+    end
+    return nil
+end
+
+const function fire(Player: Player, Origin: unknown, Hit: unknown, Normal: unknown, Hand: unknown)
     const Owner = Owners[Player]
-    const Model = if Owner then Owner.Model else nil
+    const Item = if Owner then heldBy(Owner, Hand) else nil
     const Character = Player.Character
     const Root = if Character then Character:FindFirstChild("HumanoidRootPart") else nil
-    if not Owner or not Model or not Owner.Equipped or typeof(Origin) ~= "Vector3" or typeof(Hit) ~= "Vector3" then
+    if not Owner or not Item or typeof(Origin) ~= "Vector3" or typeof(Hit) ~= "Vector3" then
         return
     end
     if not Root or not Root:IsA("BasePart") or (Origin - Root.Position).Magnitude > Tools.MaxMuzzleGap then
         return
     end
-    const Stats = Owner.Stats
+    const Stats = Item.Stats
     if type(Stats.Bullet) ~= "string" then
         return
     end
     const Now = os.clock()
-    if Now - Owner.Fired < (Stats.FireRate or 0.2) * Tools.FireSlack then
+    if Now - Item.Fired < (Stats.FireRate or 0.2) * Tools.FireSlack then
         return
     end
-    Owner.Fired = Now
+    Item.Fired = Now
     const Range = (Stats.Range or 500) + 5
     const Gap = Hit - Origin
     const Landed = if Gap.Magnitude > Range then Origin + Gap.Unit * Range else Hit
     const Side = if typeof(Normal) == "Vector3" then Normal else nil
-    hook(Owner.Equipped, "onFire", Player, Model, { Origin = Origin, Hit = Landed, Normal = Side }, Stats)
+    hook(Item.Tool, "onFire", Player, Item.Model, { Origin = Origin, Hit = Landed, Normal = Side }, Stats)
     const Near: { Player } = {}
     const Reach = Stats.RelayRange or Tools.RelayRange
     for _, Other in Players:GetPlayers() do
@@ -421,20 +640,50 @@ const function fire(Player: Player, Origin: unknown, Hit: unknown, Normal: unkno
     end
 end
 
-const function act(Player: Player, Id: unknown, Value: unknown)
+const function act(Player: Player, Id: unknown, Value: unknown, Hand: unknown)
     const Owner = Owners[Player]
-    if not Owner or type(Id) ~= "string" or not Owner.Equipped or not Owner.Model then
+    const Item = if Owner then heldBy(Owner, Hand) else nil
+    if not Item or type(Id) ~= "string" then
         return
     end
-    hook(Owner.Equipped, "onAction", Player, Owner.Model, Id, Value)
+    hook(Item.Tool, "onAction", Player, Item.Model, Id, Value)
+end
+
+function Tools.held(Player: Player, Hand: unknown): (Held?, ToolBuild?)
+    const Owner = Owners[Player]
+    const Item = if Owner then heldBy(Owner, Hand) else nil
+    if not Owner or not Item then
+        return nil, nil
+    end
+    return Item, buildOf(Owner, Item.Slot)
+end
+
+function Tools.build(Player: Player, Slot: string): ToolBuild?
+    const Owner = Owners[Player]
+    return if Owner then buildOf(Owner, Slot) else nil
+end
+
+function Tools.hide(Player: Player, Slot: string, On: boolean)
+    const Owner = Owners[Player]
+    if not Owner or (Owner.Hidden[Slot] == true) == On then
+        return
+    end
+    Owner.Hidden[Slot] = if On then true else nil
+    for _, Item in Owner.Hands do
+        if Item.Slot == Slot then
+            conceal(Item.Model, On)
+        end
+    end
+    holster(Owner)
 end
 
 function Tools.equipped(Player: Player): (string?, Model?)
     const Owner = Owners[Player]
-    if not Owner then
+    const Item = if Owner then heldBy(Owner, nil) else nil
+    if not Owner or not Item then
         return nil, nil
     end
-    return Owner.Equipped, Owner.Model
+    return Owner.Equipped, Item.Model
 end
 
 function Tools.snapshot(Player: Player): { [string]: ToolBuild }?
@@ -461,16 +710,17 @@ function Tools.attach(Player: Player, Data: PlayerData)
         Data = Data,
         Equipped = nil,
         Slot = nil,
-        Model = nil,
-        Stats = {},
-        Fired = 0,
+        Hands = {},
         Holsters = {},
+        Hidden = {},
         Stamp = 0,
         Links = {},
         Queued = false,
     }
     Owners[Player] = Owner
-    dataOf(Owner).Slots = {}
+    const Fresh = dataOf(Owner)
+    Fresh.Slots = {}
+    Fresh.Links = {}
     Player.CharacterAdded:Connect(function(Character: Model)
         if Owners[Player] == Owner then
             watch(Owner, Character)
@@ -501,6 +751,9 @@ function Tools.start()
     Net:When("@Tools/Set", set)
     Net:When("@Tools/Clear", clear)
     Net:When("@Tools/Equip", equipSlot)
+    Net:When("@Tools/Link", link)
+    Net:When("@Tools/Unlink", unlink)
+    Net:When("@Tools/UnlinkAll", unlinkAll)
     Net:When("@Tools/LoadSave", loadSave)
     Net:On("@Tools/Action", act)
     Net:On("@Tools/Fire", fire)

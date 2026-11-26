@@ -4,8 +4,8 @@
 
 ## Coming features
 
-- [ ] Footstep sounds
-- [ ] Emote wheel
+- [x] Footstep sounds
+- [x] Emote menu
 
 **READ ME**
 This game was coded by me HOWEVER. This doc and some color palletes were AI generated I made the UI but I am color blind so I struggle a bit with colors and writing is hard >:(
@@ -18,6 +18,84 @@ This guide shows how each part works and how to add your own.
 - Sync the project into Studio with RoFlux using `default.project.json`.
 - Tool models live in `ServerStorage.ToolAssets` and dice models in `ReplicatedStorage.DiceModels` in the place file. Make sure your place has them.
 - Add your user id to `OmniUsers` and `Moderators` in `src/Server/Admin/Config.luau` to use the staff tools.
+
+## Making your own UI
+
+Every screen in the game can be swapped for your own. The game systems never build their screens themselves. They load them through `src/Shared/UI`, send them updates, and listen for button presses. Your UI only has to show the updates and send the presses back.
+
+### Swapping a screen
+
+Open `src/Shared/UI/Config.luau`. Each line points a screen name at the module that draws it.
+
+```lua
+return {
+    Radio = GUI.Radio,
+    Dice = GUI.Dice,
+    ...
+}
+```
+
+Point a name at your own module to use it instead. You can also do it from code before the game starts the system:
+
+```lua
+const UI = require(ReplicatedStorage.Shared.UI)
+UI.use("Radio", ReplicatedStorage.MyUI.Radio)
+```
+
+### What your UI module needs
+
+Your module can be a vision capture, like the built in ones, or a plain table.
+
+A plain table needs:
+
+- `mount(Parent)` builds your UI inside `Parent` and returns it.
+- `unmount()` removes it. This one is optional.
+- A function for each update you care about, named after the update. Updates you skip are ignored.
+
+```lua
+return {
+    mount = function(Parent)
+        ...
+    end,
+    RadioShown = function(Shown)
+        Frame.Visible = Shown
+    end,
+    RadioNow = function(View)
+        Title.Text = View.Channel
+    end,
+}
+```
+
+To send a press back, call the screen's bridge with an action name and a value:
+
+```lua
+const Bridges = require(ReplicatedStorage.Shared.Radio.Bridges)
+Bridges.Radio:Call("Tune", "Rock")
+```
+
+### The screens
+
+The shape of each update is in the bridge module as an `export type`. The actions a system listens for are in the function that binds the bridge, listed below.
+
+| Screen | Updates it gets | Bridge | Actions handled in |
+| --- | --- | --- | --- |
+| `Radio` | RadioShown, RadioNow, RadioProgress, RadioChannels | `Shared/Radio/Bridges` | `Shared/Radio/init.luau` |
+| `Dice` | DiceShown, DiceResult, DiceKinds, DiceStats | `Shared/Dice/Bridges` | `Shared/Dice/init.luau` |
+| `ActionLog` | LogShown, LogState, LogPlayers, LogEntries | `Shared/ActionLog/Bridges` | `Shared/ActionLog/init.luau` |
+| `Emotes` | EmotesShown, EmoteList | `Shared/Emotes/Bridges` | `Shared/Emotes/init.luau` |
+| `Omni` | OmniShown, OmniTab, OmniWorld, OmniAmbient, OmniWeathers, OmniPresets, OmniTints, OmniPlayers, OmniPopup, OmniPin | `Shared/Omni/Bridges` | `onAction` in `Shared/Omni/init.luau` |
+| `Tools` | HotbarShown, HotbarOpen, HotbarSlots, ActionBar, ActionBarOpen | `Shared/Tools/Bridges` | `Shared/Tools/Client.luau` |
+| `Sidebar` | Expanded, Buttons | `Shared/Utility/Bridges` | `Shared/Utility/Sidebar.luau` |
+| `Settings` | Shown, Values, Dirty | `Shared/Utility/Bridges` | `Shared/Utility/init.luau` |
+| `BuildPanel` | Tools, Selected, Toggle, Mode, CountCurrent, CountMax, LoadPage, Page | `Shared/PropPlacer/Bridges` | `Shared/PropPlacer/Controller.luau` |
+| `Toast` | Push | none | |
+| `SaveMenu` | Ask, Shown, Slots, Hint | `Shared/PropPlacer/Bridges` | `Shared/PropPlacer/Controller.luau` |
+| `Customize` | many, see the modules in `GUI_Elements/Customize` | `Shared/Customize/Bridges` | the `on...` functions in `Shared/Customize/Menu.luau` |
+| `PropWidget` | builds prop widget bars, windows and info cards | | `Shared/PropPlacer/Widgets.luau` |
+
+The easiest way to start is to copy the built in module for a screen, change how it looks, and point the config at your copy. The update names and actions stay the same, so the system keeps working.
+
+The labels drawn in the world, like the ruler distance, dice over heads, nametags, meta vision tags and tool mount buttons, are still built by their systems.
 
 ## Adding a prop
 
@@ -486,9 +564,9 @@ Open customize and press `tools`. Any tool you are holding is put away when cust
 - Spots that have a part you can take off also have a red X square. Press it to take the part off.
 - Changing a part takes off any parts that were on it.
 - The list on the left shows every part on the tool. Press X to take one off.
-- Nothing is saved while you edit. Press `equip` and a bar with your 5 slots shows at the bottom. Press a slot to put the tool in it. This replaces what was in that slot.
+- Nothing is saved while you edit. Press `equip` and a bar with your 5 slots shows at the bottom. Press a slot to put the tool in it. This replaces what was in that slot and closes the editor. Press `cancel` to close the slot bar without saving.
 - Press back to throw away your changes.
-- When you are not editing, the slot bar shows your hotbar. Press a slot and say yes to load that tool so you can edit it. Press the X on a slot to empty it.
+- The slot bar at the bottom always shows your hotbar on the tools page. Press a slot and say yes to load that tool so you can edit it, even while you are editing another one. Press the X on a slot to empty it.
 - The panel on the right shows the tool on your rig when it is put away. Pick the body part, then press `move` or `rotate` and drag the handles on your rig. Press `off` to hide the handles. Size changes the whole tool evenly.
 
 To change where the tool camera looks, add a part named `ToolBench` to Workspace.
@@ -500,6 +578,7 @@ Every tool and every part is a premade model in `ServerStorage.ToolAssets`. Noth
 - Tools go in `ServerStorage.ToolAssets.Tools`. Parts go in `ServerStorage.ToolAssets.Attachments`.
 - The model name must match the id in code, like `BaseballBat` or `WoodBarrel`.
 - Set a `PrimaryPart`. It sits at the mount the part is placed on.
+- You do not have to weld the model. Any part that is not already welded gets welded to the `PrimaryPart` when the tool is built.
 - Guns need an `Attachment` named `Muzzle` where bullets come out. If there are several, the one on the deepest part wins, so a suppressor beats the barrel.
 
 The server builds tools in hands and on rigs. Players ask the server for the models they need for the hotbar and the customize preview, and only get the ones they ask for.
@@ -563,14 +642,45 @@ Code for the tool goes in `client` and `server`.
 - `Context.stats()` gives the tool's stats with every part's `Mods` added.
 - `server.onAction` runs on the server when `Context.send` is used.
 
+### Linking and dual wielding
+
+Every slot on the hotbar that can be paired shows a `link` box. Press `link` on one slot, then `link` on another, to pair them. Taking out either slot now puts one tool in each hand. Opening customize unlinks every tool. Press the box on a linked slot to unlink it. Unlinking tools you are holding puts them away. You can not link a tool while you are holding it, so the link box hides on tools in your hands.
+
+- Left click takes turns between your hands, right then left. If the hand whose turn it is can not act, like an empty gun or a thrown knife, the other hand goes instead.
+- Right click does nothing while you hold two tools.
+- A tool with `Click = false` is never used by clicking while paired, like the shield.
+- `client.onActivate` can return false to say it could not act, so the other hand gets the click.
+- A tool can take over clicks while paired with `client.onPairActivate(Pair)`. Return true to say it handled the click.
+- Tool animations are made for the right hand. The left hand plays a mirrored copy, so you only animate once.
+- A tool can have a one handed version of any animation for when it is paired. Name it with `_OneHand` on the end, like `Hold_OneHand`. The bat uses this so it does not reach across your body while you hold a shield.
+- Each hand has its own arm layer, so your legs keep walking normally while both hands do their own thing.
+
+Which tools can pair is set with `Dual` on the tool:
+
+```lua
+Dual = { Tags = { "Gun" }, With = { "Gun", "Shield" } },
+```
+
+- `Tags` say what the tool is. `With` says what it can be held with.
+- Two tools pair only if each one allows the other. The shield allows guns and melee but not shields, so two shields can not be paired.
+- `Hand = "Left"` makes a tool always go in the left hand, like the shield.
+
+When two tools are paired, an action key goes to `client.onPairAction(Pair, Id)` if either tool has it. `Pair.Right`, `Pair.Left`, `Pair.Main` and `Pair.Off` are the two hands, and `Pair.Data` is shared. The pistols use this so Q points the right gun, then the left gun, then both, then neither. Without `onPairAction` the key goes to every held tool that has that action.
+
+`client.onRelease` runs on the hand that took the click when you let go. The shield uses it to lower when you let go.
+
+### Shield and bread
+
+- The shield can not be customized. It sits in your left hand. Hold click to block when it is the only tool out. F toggles the block, also when it is paired. Right click does nothing for the shield.
+- The bread plays an eating animation when you click. It never runs out.
+
 ### Guns
 
 There are two test guns, a pistol and a laser pistol. Both can take the scope.
 
 - Left click fires. R reloads. The top bar shows how many shots are left.
 - Q points the gun down and E points it up. You can not fire while it points down or up.
-- Hold right click to zoom. The scope zooms in further.
-- While holding a gun your arms follow your mouse up and down. Your body does not turn.
+- Your arms stay aimed forward. Shots go toward your mouse, with a little random spread set by `Spread`.
 
 How a shot works:
 
@@ -594,11 +704,51 @@ Bullets.add("Tracer", {
 - `onHit` runs on every screen when the bullet lands on something. Put hit sounds, marks and sparks here. `Shot.Part`, `Shot.Hit` and `Shot.Normal` tell you what was hit.
 - `draw` can replace how the bullet looks.
 
-Gun stats are `Bullet`, `FireSound`, `FireVolume`, `FireRate`, `Spread`, `AimSpread`, `Range`, `Zoom`, `Magazine` and `ReloadTime`. Parts can change any of them with `Mods`, so a body, barrel or muzzle can change the sound, the bullet and how it shoots.
+Gun stats are `Bullet`, `FireSound`, `FireVolume`, `FireRate`, `Spread`, `Range`, `Magazine` and `ReloadTime`. Parts can change any of them with `Mods`, so a body, barrel or muzzle can change the sound, the bullet and how it shoots. The scope halves the spread.
+
+### Throwing knife and cleaver
+
+There are two throwing tools. The knife uses a toss and the cleaver uses an arc. Both are melee weapons too.
+
+- Click to swing. The knife slashes and the cleaver chops.
+- Press T to throw toward your mouse. The tool leaves your hand until you get it back, and you can not swing while it is gone.
+- Press R to get it back. You can do this from any distance.
+- A toss flies fast and almost straight, then sticks in tip first.
+- An arc is lobbed high and spins end over end, then chops in edge first.
+- If it hits a person it falls to the floor at their feet. If it hits nothing it comes back on its own.
+- Thrown tools come back when you respawn, change that slot or leave.
+- Knives and cleavers can be linked with each other or with the shield. Left click swings each hand in turn. While you hold two, throws and swings only move that arm, using the `Throw_OneHand` and `Swing_OneHand` animations.
+
+How a throw works:
+
+1. Your screen works out the whole flight and the exact spot and angle it lands at, and draws it right away.
+2. The server checks the throw, hides the tool in your hand and sends the flight to everyone else.
+3. Every screen plays the same flight and leaves the tool at the same spot. The flight and the landed tool are only visuals.
+
+Each tool sets its throw with `Stats`:
+
+```lua
+Stats = {
+    Throw = "Arc",
+    ThrowSpeed = 45,
+    ThrowRange = 60,
+    ReleaseTime = 0.34,
+    SwingTime = 0.72,
+    ThrowCooldown = 0.6,
+    Embed = 0.18,
+    StickSquare = 0.9,
+},
+```
+
+- `Throw` is the kind, `Toss` or `Arc`. Kinds are set in `src/Shared/Tools/Throwables/Flight.luau` with their gravity and spin.
+- `ReleaseTime` is when in the `Throw` animation the tool leaves your hand. `SwingTime` is how long the `Swing` animation blocks the next swing.
+- `Embed` is how deep it sinks in. `StickSquare` is how straight into the surface it sticks, from 0 (keeps its flight angle) to 1 (straight in).
+- Put an attachment named `ThrowTip` in the model where it should bite in. Its front faces the way it goes in. The knife's points out of the tip and the cleaver's points out of the edge.
+- `OneHand = true` keeps the tool on one arm so the other arm still swings when you walk.
 
 ## Side bar
 
-From top to bottom: customize, build, prop collide, ruler, run (and crouch and crawl on phones), roll, action log, radio, meta vision and settings.
+From top to bottom: customize, build, prop collide, ruler, run (and crouch and crawl on phones), emotes, roll, action log, radio, meta vision, omni tool (staff only) and settings. The side bar shows 8 buttons in each column and starts a new column when there are more.
 
 ## Radio
 
@@ -727,6 +877,31 @@ Moderators can type these in chat.
 
 Bans use Roblox's ban system, so they work across every server. They may not work in Studio.
 
+## Emotes panel
+
+Press `emotes` on the side bar to see every emote and play one. Press it again or press `stop` to stop. You need to stand still, and you can not emote while holding a tool. Taking out a tool stops your emote.
+
+The list comes from `Emotes` in `src/Shared/AnimationController/Defaults.luau`. Add `Label` to set the name shown and `Order` to set where it sits.
+
+## Footsteps
+
+Footsteps play for everyone near you, using the material they walk on. The normal Roblox running sound is turned off.
+
+Set them in `src/Shared/Footsteps/Config.luau`:
+
+```lua
+Grass = {
+    Ids = { 135037154891351, 129956418693357 },
+    Materials = { "Grass", "LeafyGrass", "Ground" },
+    Volume = 0.5,
+},
+```
+
+- Each group has sound ids and the materials that use them. One is picked at random each step.
+- `Default` is the group used for any material not listed.
+- `StepLength` is how far you walk between steps, in studs.
+- `MuteDefault = false` keeps the normal Roblox running sound.
+
 ## Head turning
 
 Everyone's head turns to look where their camera is looking. Your screen sends where you look to the server about ten times a second, and the server passes it on to every player who has head turning on.
@@ -740,6 +915,7 @@ Turn on `disable head turning` in settings to stop seeing it. You also stop gett
 - Running stands you up. Jumping while crouching or crawling stands you up.
 - You can not crawl while holding a tool, unless the tool allows it.
 - While the build menu is open, the run, crouch, crawl and tool keys are turned off so they do not get in the way of build keys.
+- You can not open the build menu while holding a tool. Put it away first.
 
 Speeds are in `src/Shared/Movement/init.luau`. The run and crawl animations are in `src/Shared/Movement/Clips.luau`. To use your own, add animations named `Run_Legs`, `Run_Body`, `CrawlIdle` and `Crawl` to `ReplicatedStorage/Animations` or to the animation Library.
 

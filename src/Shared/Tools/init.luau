@@ -29,6 +29,11 @@ export type SetSpec = {
 
 export type ClipValue = Clips.Spec | string | number
 
+export type DualRule = {
+    Tags: { string },
+    With: { string },
+}
+
 export type ToolDef = {
     Name: string,
     Category: string,
@@ -45,6 +50,10 @@ export type ToolDef = {
     Actions: { Action }?,
     Stats: { [string]: any }?,
     AllowCrawl: boolean?,
+    Hand: ("Right" | "Left")?,
+    OneHand: boolean?,
+    Dual: DualRule?,
+    Click: boolean?,
     client: { [string]: any }?,
     server: { [string]: any }?,
 }
@@ -420,6 +429,32 @@ const function ready(Given: ToolBuild): boolean
     return All
 end
 
+const function bind(Item: Instance, Root: BasePart)
+    const Joined: { [BasePart]: boolean } = {}
+    for _, Joint in Item:GetDescendants() do
+        if Joint:IsA("JointInstance") or Joint:IsA("WeldConstraint") then
+            const First: Instance? = (Joint :: any).Part0
+            const Second: Instance? = (Joint :: any).Part1
+            if First and First:IsA("BasePart") then
+                Joined[First] = true
+            end
+            if Second and Second:IsA("BasePart") then
+                Joined[Second] = true
+            end
+        end
+    end
+    for _, Part in Item:GetDescendants() do
+        if Part:IsA("BasePart") and Part ~= Root and not Joined[Part] then
+            const Weld = Instance.new("Weld")
+            Weld.Name = "TemplateWeld"
+            Weld.Part0 = Root
+            Weld.Part1 = Part
+            Weld.C0 = Root.CFrame:ToObjectSpace(Part.CFrame)
+            Weld.Parent = Part
+        end
+    end
+end
+
 function Tools.assemble(Given: ToolBuild): Model?
     const Def = Tools.get(Given.Tool)
     if not Def or not ready(Given) then
@@ -439,6 +474,7 @@ function Tools.assemble(Given: ToolBuild): Model?
         return nil
     end
     Made.PrimaryPart = Root
+    bind(Made, Root)
     Made.Name = Def.Name
     Made:SetAttribute(Tools.ToolAttribute, Given.Tool)
     const function attach(Owner: BasePart, Mounts: { Mount }?, Prefix: string, Depth: number)
@@ -457,6 +493,7 @@ function Tools.assemble(Given: ToolBuild): Model?
             if not Piece or not PieceRoot then
                 continue
             end
+            bind(Piece, PieceRoot)
             Piece.Name = `Part_{Path}`
             Piece:SetAttribute(Tools.PathAttribute, Path)
             const Joint = Instance.new("Weld")
@@ -515,8 +552,42 @@ function Tools.stats(Given: ToolBuild?): { [string]: any }
     return Made
 end
 
+const function shares(Wanted: { string }, Tags: { string }): boolean
+    for _, Tag in Tags do
+        if table.find(Wanted, Tag) then
+            return true
+        end
+    end
+    return false
+end
+
+function Tools.canPair(First: string?, Second: string?): boolean
+    const A = Tools.get(First)
+    const B = Tools.get(Second)
+    const RuleA = if A then A.Dual else nil
+    const RuleB = if B then B.Dual else nil
+    if not RuleA or not RuleB then
+        return false
+    end
+    return shares(RuleA.With, RuleB.Tags) and shares(RuleB.With, RuleA.Tags)
+end
+
+function Tools.hands(MainId: string, OffId: string?): ("Right" | "Left", "Right" | "Left")
+    const Main = Tools.get(MainId)
+    const Off = if OffId then Tools.get(OffId) else nil
+    const MainLeft = Main ~= nil and Main.Hand == "Left"
+    const OffLeft = Off ~= nil and Off.Hand == "Left"
+    if not OffId then
+        return if MainLeft then "Left" else "Right", "Left"
+    end
+    if MainLeft and not OffLeft then
+        return "Left", "Right"
+    end
+    return "Right", "Left"
+end
+
 function Tools.grip(Def: ToolDef, Hand: BasePart): CFrame
-    const Point = Hand:FindFirstChild("RightGripAttachment")
+    const Point = Hand:FindFirstChild(if Hand.Name == "LeftHand" then "LeftGripAttachment" else "RightGripAttachment")
     const Position = if Point and Point:IsA("Attachment") then Point.Position else Config.GripPosition
     return CFrame.new(Position) * (Def.Grip or Config.Grip)
 end

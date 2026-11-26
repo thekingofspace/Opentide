@@ -2,7 +2,7 @@
 const Players = game:GetService("Players")
 const ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-const PropWidget = require(ReplicatedStorage.Shared.GUI_Elements.PropWidget)
+const WidgetTypes = require(ReplicatedStorage.Shared.UI.WidgetTypes)
 const Widgets = require(ReplicatedStorage.Shared.PropPlacer.Widgets)
 const Stats = require(ReplicatedStorage.Shared.Bio.Stats)
 
@@ -44,11 +44,11 @@ const function played(Seconds: number): string
     return if Hours > 0 then `{Hours}h {Minutes}m played` else `{Minutes}m played`
 end
 
-function PlayerCards.rows(Player: Player): { PropWidget.InfoRow }
+function PlayerCards.rows(Player: Player): { WidgetTypes.InfoRow }
     const Playtime = Player:GetAttribute("Playtime")
     const Seconds = if type(Playtime) == "number" then Playtime else 0
     const Joined = Player:GetAttribute("FirstJoined")
-    const Rows: { PropWidget.InfoRow } = {}
+    const Rows: { WidgetTypes.InfoRow } = {}
     const Nickname = Player:GetAttribute("Nickname")
     if type(Nickname) == "string" and Nickname ~= "" then
         table.insert(Rows, { Label = "nickname", Value = Nickname })

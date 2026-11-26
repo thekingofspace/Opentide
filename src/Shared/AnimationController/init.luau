@@ -6,7 +6,7 @@ const RunService = game:GetService("RunService")
 
 const signal = require(ReplicatedStorage.MainPackages.signal)
 
-export type Part = "Full" | "Legs" | "Body"
+export type Part = "Full" | "Legs" | "Body" | "Right" | "Left"
 export type Target = Part
 export type Clip = string | number | Animation | KeyframeSequence
 
@@ -24,6 +24,8 @@ export type SlotTable = {
     Full: { [string]: Slot }?,
     Legs: { [string]: Slot }?,
     Body: { [string]: Slot }?,
+    Right: { [string]: Slot }?,
+    Left: { [string]: Slot }?,
 }
 
 export type Options = {
@@ -90,11 +92,13 @@ Controller.__index = Controller
 export type Controller = typeof(setmetatable({} :: Fields, Controller))
 
 const AnimationController = {
-    Parts = { "Full", "Legs", "Body" } :: { Part },
+    Parts = { "Full", "Legs", "Body", "Right", "Left" } :: { Part },
     LayerPriority = {
         Full = Enum.AnimationPriority.Movement,
         Legs = Enum.AnimationPriority.Action,
         Body = Enum.AnimationPriority.Action,
+        Right = Enum.AnimationPriority.Action2,
+        Left = Enum.AnimationPriority.Action2,
     } :: { [Part]: Enum.AnimationPriority },
     PartPriority = Enum.AnimationPriority.Action2,
     FullPriority = Enum.AnimationPriority.Action3,
@@ -178,7 +182,7 @@ end
 
 const function partsOf(Target: Target): { Part }
     if Target == "Full" then
-        return { "Full", "Legs", "Body" }
+        return { "Full", "Legs", "Body", "Right", "Left" }
     end
     return { Target }
 end
@@ -205,6 +209,11 @@ end
 const function slotsOf(Table: SlotTable, Part: Part): { [string]: Slot }?
     if Part == "Full" then
         return Table.Full
+    end
+    if Part == "Right" then
+        return Table.Right
+    elseif Part == "Left" then
+        return Table.Left
     end
     return if Part == "Legs" then Table.Legs else Table.Body
 end
@@ -471,12 +480,16 @@ function AnimationController.new(Target: Player | Model, Given: Options?): Contr
             Full = if Settings.Defaults == false then {} else table.clone(Settings.Defaults or AnimationController.Defaults),
             Legs = {},
             Body = {},
+            Right = {},
+            Left = {},
         },
         Sets = {},
         Layers = {
             Full = { Spec = nil, Track = nil, Suppressed = 0, Speed = 1 },
             Legs = { Spec = nil, Track = nil, Suppressed = 0, Speed = 1 },
             Body = { Spec = nil, Track = nil, Suppressed = 0, Speed = 1 },
+            Right = { Spec = nil, Track = nil, Suppressed = 0, Speed = 1 },
+            Left = { Spec = nil, Track = nil, Suppressed = 0, Speed = 1 },
         },
         Actions = {},
         Tracks = {},

@@ -19,6 +19,8 @@ export type ActionRef = {
 
 export type EmoteRef = {
     Name: string,
+    Label: string?,
+    Order: number?,
     Part: Target?,
     Looped: boolean?,
     Crouch: string?,
@@ -52,7 +54,11 @@ const Defaults = {
     Actions = {} :: { [string]: ActionRef },
 
     Emotes = {
-        Point = { Name = "Point", Part = "Body", Crouch = "CrouchPoint" },
+        Point = { Name = "Point", Label = "point", Order = 1, Part = "Body", Crouch = "CrouchPoint" },
+        Wave = { Name = "Wave", Label = "wave", Order = 2, Part = "Full" },
+        Cheer = { Name = "Cheer", Label = "cheer", Order = 3, Part = "Full" },
+        Laugh = { Name = "Laugh", Label = "laugh", Order = 4, Part = "Full" },
+        Dance = { Name = "Dance", Label = "dance", Order = 5, Part = "Full", Looped = true },
     } :: { [string]: EmoteRef },
 }
 

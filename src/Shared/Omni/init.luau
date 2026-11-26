@@ -16,7 +16,8 @@ const DayNight = require(ReplicatedStorage.Shared.Utility.DayNight)
 const Weather = require(ReplicatedStorage.Shared.Utility.Weather)
 const Shared = require(script.Shared)
 const Bridges = require(script.Bridges)
-const View = require(ReplicatedStorage.Shared.GUI_Elements.Omni)
+const UI = require(ReplicatedStorage.Shared.UI)
+const View = UI.view("Omni")
 
 export type Access = {
     Omni: boolean,
@@ -292,7 +293,7 @@ function Omni.start(): Access
         DisplayOrder = 8,
     }) :: ScreenGui
     Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-    View:Open().Parent = Gui
+    UI.mount("Omni", Gui)
 
     Bridges.Omni:Bind(onAction)
     Net:On("@Omni/Popup", function(Title: string, Text: string, From: string)

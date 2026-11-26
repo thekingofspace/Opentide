@@ -22,6 +22,7 @@ const Controller = {
 const Bridges = PropPlacer.Bridges
 local Started = false
 local Locked = false
+local Gate: (() -> string?)? = nil
 
 function Controller.canBuild(): boolean
     if RunService:IsStudio() then
@@ -45,9 +46,21 @@ const function togglePanel()
     end
     if PropPlacer.isVisible() then
         PropPlacer.setVisible(false)
-    elseif not denied() then
+        return
+    end
+    const Check = Gate
+    const Problem = if Check then Check() else nil
+    if Problem then
+        PropPlacer.toast(Problem, "Info")
+        return
+    end
+    if not denied() then
         PropPlacer.setVisible(true)
     end
+end
+
+function Controller.setGate(Given: () -> string?)
+    Gate = Given
 end
 
 function Controller.togglePanel()

@@ -294,6 +294,7 @@ export type BioData = {
 export type ToolsData = {
     Slots: { [string]: ToolBuild },
     Builds: { [string]: ToolBuild }?,
+    Links: { [string]: string }?,
 }
 
 export type ShopGift = {

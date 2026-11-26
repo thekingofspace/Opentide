@@ -10,7 +10,8 @@ const signal = require(ReplicatedStorage.MainPackages.signal)
 const Sounds = require(ReplicatedStorage.Shared.Sounds)
 const Channels = require(script.Channels)
 const Bridges = require(script.Bridges)
-const View = require(ReplicatedStorage.Shared.GUI_Elements.Radio)
+const UI = require(ReplicatedStorage.Shared.UI)
+const View = UI.view("Radio")
 
 export type Clip = Channels.Clip
 export type Channel = Channels.Channel
@@ -388,7 +389,7 @@ function Radio.start()
         DisplayOrder = 5,
     }) :: ScreenGui
     Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-    View:Open().Parent = Gui
+    UI.mount("Radio", Gui)
 
     Bridges.Radio:Bind(function(Action: string, Value: any)
         if Action == "Close" then

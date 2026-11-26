@@ -70,10 +70,9 @@ const Parts: { [string]: Tools.AttachmentDef } = {
         Name = "Scope",
         Kind = "Sight",
         Order = 1,
-        Description = "zooms in further when you aim and steadies your shots",
+        Description = "steadies your shots so they spread less",
         Mods = {
-            Zoom = 2.5,
-            AimSpreadScale = 0.5,
+            SpreadScale = 0.5,
         },
     },
 

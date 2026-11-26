@@ -12,7 +12,8 @@ const PropPlacer = require(ReplicatedStorage.Shared.PropPlacer)
 const ToolsClient = require(ReplicatedStorage.Shared.Tools.Client)
 const Dice = require(ReplicatedStorage.Shared.Dice)
 const Bridges = require(script.Bridges)
-const View = require(ReplicatedStorage.Shared.GUI_Elements.ActionLog)
+const UI = require(ReplicatedStorage.Shared.UI)
+const View = UI.view("ActionLog")
 
 type Entry = Bridges.EntryRow
 
@@ -144,7 +145,7 @@ function ActionLog.start()
         DisplayOrder = 5,
     }) :: ScreenGui
     Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-    View:Open().Parent = Gui
+    UI.mount("ActionLog", Gui)
 
     Bridges.Log:Bind(function(Action: string, Value: any)
         if Action == "Close" then

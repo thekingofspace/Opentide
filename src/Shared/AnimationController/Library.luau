@@ -14,6 +14,10 @@ const Library = {
         CrouchWalk_Body = "",
         Point = "",
         CrouchPoint = "",
+        Wave = 507770239,
+        Cheer = 507770677,
+        Laugh = 507770818,
+        Dance = 507771019,
     } :: { [string]: string | number },
 }
 

@@ -10,8 +10,8 @@ const Bridges = require(ReplicatedStorage.Shared.Tools.Bridges)
 const Style = Kit.Style
 const Bridge = Bridges.Hud
 
-const SlotSize = 104
-const Gap = 10
+const SlotSize = 132
+const Gap = 12
 const Count = 5
 
 const function slotCard(View: Bridges.SlotView): Kit.Declaration
@@ -26,20 +26,44 @@ const function slotCard(View: Bridges.SlotView): Kit.Declaration
         end,
         Parts.bevel(`Slot_{View.Slot}_Shine`, 3, Kit.light(Fill), Kit.dark(Fill)),
 
-        Parts.keyBadge(tostring(View.Slot), 26, {
+        Parts.keyBadge(tostring(View.Slot), 32, {
             Position = UDim2.fromOffset(5, 5),
             ZIndex = 4,
         }),
 
-        Kit.text("Name", View.Name, 14, {
+        Kit.text("Name", View.Name, 17, {
             AnchorPoint = Vector2.new(0, 1),
-            Position = UDim2.new(0, 4, 1, -4),
-            Size = UDim2.new(1, -8, 0, 18),
+            Position = UDim2.new(0, 4, 1, -5),
+            Size = UDim2.new(1, -8, 0, 22),
             TextXAlignment = Enum.TextXAlignment.Center,
             TextTruncate = Enum.TextTruncate.AtEnd,
             FontFace = Parts.Heading,
         }),
     }
+    if View.Linkable or View.Linked then
+        const Linked = View.Linked
+        const LinkFill = if View.Linking then Kit.Picked elseif Linked then Style.AccentColor else Style.PlateColor
+        const LinkInk = if Linked and not View.Linking then Style.AccentText else Style.InkColor
+        table.insert(Inner, {
+            ClassName = "TextButton",
+            Name = "Link",
+            AnchorPoint = Vector2.new(1, 0),
+            Position = UDim2.new(1, -5, 0, 5),
+            Size = UDim2.fromOffset(if Linked then 70 else 50, 26),
+            BackgroundColor3 = LinkFill,
+            BorderSizePixel = 0,
+            AutoButtonColor = true,
+            Text = if View.Linking then "pick" elseif Linked then `link {Linked}` else "link",
+            FontFace = Parts.Heading,
+            TextSize = 14,
+            TextColor3 = LinkInk,
+            ZIndex = 5,
+            Activated = function()
+                Bridge:Call("Link", View.Slot)
+            end,
+            Parts.outline(1.2),
+        })
+    end
     const Model = View.Model
     if Model then
         table.insert(Inner, {
@@ -67,7 +91,7 @@ const function hotbar(): Kit.Declaration
         Name = "Hotbar",
         AnchorPoint = Vector2.new(0.5, 1),
         Position = UDim2.new(0.5, 0, 1, -10),
-        Size = UDim2.fromOffset(Count * SlotSize + (Count - 1) * Gap + 32, SlotSize + 72),
+        Size = UDim2.fromOffset(Count * SlotSize + (Count - 1) * Gap + 36, SlotSize + 80),
         BackgroundTransparency = 1,
         Visible = false,
 
@@ -86,14 +110,14 @@ const function hotbar(): Kit.Declaration
             Kit.setButton(Self, "Hotbar_Tab", if Value then "tools  v" else "tools  ^")
             const Tab = Self:FindFirstChild("Hotbar_Tab")
             if Tab and Tab:IsA("GuiObject") then
-                Tab.Position = if Value then UDim2.new(0.5, 0, 1, -(SlotSize + 34)) else UDim2.new(0.5, 0, 1, 0)
+                Tab.Position = if Value then UDim2.new(0.5, 0, 1, -(SlotSize + 38)) else UDim2.new(0.5, 0, 1, 0)
             end
         end),
 
         Kit.press("Hotbar_Tab", "tools  v", {
             AnchorPoint = Vector2.new(0.5, 1),
-            Position = UDim2.new(0.5, 0, 1, -(SlotSize + 34)),
-            Size = UDim2.fromOffset(150, 36),
+            Position = UDim2.new(0.5, 0, 1, -(SlotSize + 38)),
+            Size = UDim2.fromOffset(170, 40),
         }, Style.HeaderColor, Style.CardColor, Bridge, "Toggle", nil, true, 18),
 
         {
@@ -101,7 +125,7 @@ const function hotbar(): Kit.Declaration
             Name = "Hotbar_Tray",
             AnchorPoint = Vector2.new(0.5, 1),
             Position = UDim2.fromScale(0.5, 1),
-            Size = UDim2.new(1, 0, 0, SlotSize + 28),
+            Size = UDim2.new(1, 0, 0, SlotSize + 32),
             BackgroundColor3 = Style.BackdropColor,
             BorderSizePixel = 0,
             Parts.outline(2),
@@ -131,7 +155,7 @@ const function hotbar(): Kit.Declaration
                     for _, View in Views do
                         table.insert(Items, {
                             Key = tostring(View.Slot),
-                            Hash = `{View.Name}|{View.Tool or ""}|{View.Active}|{if View.Model then tostring(View.Model:GetAttribute("BuildHash")) else ""}`,
+                            Hash = `{View.Name}|{View.Tool or ""}|{View.Active}|{View.Linked or 0}|{View.Linking}|{View.Linkable}|{if View.Model then tostring(View.Model:GetAttribute("BuildHash")) else ""}`,
                             Build = function(): Kit.Declaration
                                 return slotCard(View)
                             end,

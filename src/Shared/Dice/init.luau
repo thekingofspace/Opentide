@@ -12,7 +12,8 @@ const PropPlacer = require(ReplicatedStorage.Shared.PropPlacer)
 const Kinds = require(script.Kinds)
 const Stats = require(ReplicatedStorage.Shared.Bio.Stats)
 const Bridges = require(script.Bridges)
-const View = require(ReplicatedStorage.Shared.GUI_Elements.Dice)
+const UI = require(ReplicatedStorage.Shared.UI)
+const View = UI.view("Dice")
 
 export type Kind = Kinds.Kind
 
@@ -297,7 +298,7 @@ function Dice.start()
         DisplayOrder = 5,
     }) :: ScreenGui
     Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-    View:Open().Parent = Gui
+    UI.mount("Dice", Gui)
 
     const Frame = Gui:FindFirstChild("Dice_View", true)
     if Frame and Frame:IsA("ViewportFrame") then

@@ -1,5 +1,6 @@
 --!strict
 const ReplicatedStorage = game:GetService("ReplicatedStorage")
+const WidgetTypes = require(ReplicatedStorage.Shared.UI.WidgetTypes)
 const vision = require(ReplicatedStorage.MainPackages.vision)
 const VisionKit = require(ReplicatedStorage.Shared.VisionKit)
 const Bridges = require(ReplicatedStorage.Shared.PropPlacer.Bridges)
@@ -41,14 +42,7 @@ const DefaultHint = "save your placed props, then load them near you or where th
 const FilledSave = UDim2.new(1, -(ButtonEdge + ClearWidth + LoadWidth + ButtonGap * 2), 0.5, 0)
 const EmptySave = UDim2.new(1, -ButtonEdge, 0.5, 0)
 
-export type Slot = {
-    Name: string,
-    Detail: string,
-    Stamp: string,
-    Filled: boolean,
-    Confirm: boolean,
-    ConfirmClear: boolean,
-}
+export type Slot = WidgetTypes.SaveSlot
 
 const function press(Name: string, Label: string, Outer: { [any]: any }, Fill: any, Ink: any, Action: string, Slot: number?, Outlined: boolean?): { [any]: any }
     const Inner: { [any]: any } = {

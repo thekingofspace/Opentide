@@ -7,51 +7,14 @@ const PropData = require(ReplicatedStorage.Shared.PropData)
 const Parts = require(script.Parent.Parts)
 const Images = require(ReplicatedStorage.Shared.Images)
 
-export type Declaration = { [any]: any }
+const WidgetTypes = require(ReplicatedStorage.Shared.UI.WidgetTypes)
 
-export type BarButton = {
-    Id: string,
-    Image: string?,
-    Color: Color3?,
-    press: () -> (),
-}
-
-export type BarSpec = {
-    Name: string,
-    Adornee: Instance,
-    Mount: Instance,
-    Buttons: { BarButton },
-    Size: number,
-    MaxDistance: number,
-    Shown: boolean,
-}
-
-export type WindowSpec = {
-    Name: string,
-    Title: string,
-    Fields: { PropData.Field },
-    Values: { [string]: any },
-    Position: Vector2,
-    Mount: Instance,
-    save: () -> (),
-    close: () -> (),
-    focus: (Root: GuiObject) -> (),
-}
-
-export type InfoRow = {
-    Label: string,
-    Value: string,
-}
-
-export type InfoSpec = {
-    Name: string,
-    Title: string,
-    Rows: { InfoRow },
-    Position: Vector2,
-    Mount: Instance,
-    close: () -> (),
-    focus: (Root: GuiObject) -> (),
-}
+export type Declaration = WidgetTypes.Declaration
+export type BarButton = WidgetTypes.BarButton
+export type BarSpec = WidgetTypes.BarSpec
+export type WindowSpec = WidgetTypes.WindowSpec
+export type InfoRow = WidgetTypes.InfoRow
+export type InfoSpec = WidgetTypes.InfoSpec
 
 const Common = vision.style("Common")
 const Typewriter = Parts.Typewriter

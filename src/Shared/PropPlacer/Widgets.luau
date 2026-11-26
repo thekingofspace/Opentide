@@ -7,7 +7,9 @@ const Workspace = game:GetService("Workspace")
 const vision = require(ReplicatedStorage.MainPackages.vision)
 const PropData = require(ReplicatedStorage.Shared.PropData)
 const CommonStyle = require(ReplicatedStorage.Shared.GUI_Elements.CommonStyle)
-const PropWidget = require(ReplicatedStorage.Shared.GUI_Elements.PropWidget)
+const UI = require(ReplicatedStorage.Shared.UI)
+const WidgetTypes = require(ReplicatedStorage.Shared.UI.WidgetTypes)
+const PropWidget = UI.view("PropWidget")
 const PropObject = require(script.Parent.PropObject)
 const World = require(script.Parent.World)
 const Tools = require(script.Parent.Tools)
@@ -263,7 +265,7 @@ const function when(Stamp: number): string
     return `{string.lower(os.date("%b %d, %H:%M", math.floor(Stamp)))} ({ago(Stamp)})`
 end
 
-const function infoRows(Prop: Prop, Resolve: boolean): { PropWidget.InfoRow }
+const function infoRows(Prop: Prop, Resolve: boolean): { WidgetTypes.InfoRow }
     const Owner = if Resolve then fetchName(Prop.Owner) else nameOf(Prop.Owner) or "..."
     const By = if Resolve then fetchName(Prop.By) else nameOf(Prop.By) or "..."
     return {
@@ -321,8 +323,8 @@ const function press(Prop: Prop, Button: PropData.WidgetButton)
     end
 end
 
-const function buttonsOf(Prop: Prop): { PropWidget.BarButton }
-    const Made: { PropWidget.BarButton } = {}
+const function buttonsOf(Prop: Prop): { WidgetTypes.BarButton }
+    const Made: { WidgetTypes.BarButton } = {}
     const Owner = Prop:isOwner()
     const Widget = widgetOf(Prop)
     if Prop.WidgetsEnabled and Widget then
@@ -442,7 +444,7 @@ const function forget(Prop: Prop)
     end
 end
 
-function Widgets.popup(Key: string, Title: string, Rows: { PropWidget.InfoRow }): vision.Vision
+function Widgets.popup(Key: string, Title: string, Rows: { WidgetTypes.InfoRow }): vision.Vision
     const Existing = Popups[Key]
     if Existing then
         Existing.Rows(Rows)

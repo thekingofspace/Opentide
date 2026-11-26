@@ -18,7 +18,9 @@ const Config = {
     EquipCooldown = 0.25,
     Categories = {
         Melee = { Name = "melee", Order = 1 },
-        Guns = { Name = "guns", Order = 2 },
+        Throwing = { Name = "throwing", Order = 2 },
+        Guns = { Name = "guns", Order = 3 },
+        Food = { Name = "food", Order = 4 },
     } :: { [string]: { Name: string, Order: number } },
 }
 

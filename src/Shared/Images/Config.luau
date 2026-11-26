@@ -19,6 +19,7 @@ const Config: { [string]: string } = {
     SidebarDice = "",
     SidebarLog = "",
     SidebarOmni = "",
+    SidebarEmotes = "",
 }
 
 return Config

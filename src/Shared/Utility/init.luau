@@ -7,8 +7,9 @@ const vision = require(ReplicatedStorage.MainPackages.vision)
 const PropPlacer = require(ReplicatedStorage.Shared.PropPlacer)
 const PropControl = require(ReplicatedStorage.Shared.PropPlacer.Controller)
 const CommonStyle = require(ReplicatedStorage.Shared.GUI_Elements.CommonStyle)
-const SidebarView = require(ReplicatedStorage.Shared.GUI_Elements.Sidebar)
-const SettingsView = require(ReplicatedStorage.Shared.GUI_Elements.SettingsPanel)
+const UI = require(ReplicatedStorage.Shared.UI)
+const SidebarView = UI.view("Sidebar")
+const SettingsView = UI.view("Settings")
 const Bridges = require(script.Bridges)
 const Settings = require(script.Settings)
 const SettingsList = require(script.SettingsList)
@@ -30,6 +31,8 @@ const Ruler = require(ReplicatedStorage.Shared.Ruler)
 const Dice = require(ReplicatedStorage.Shared.Dice)
 const ActionLog = require(ReplicatedStorage.Shared.ActionLog)
 const HeadLook = require(ReplicatedStorage.Shared.HeadLook)
+const Emotes = require(ReplicatedStorage.Shared.Emotes)
+const Footsteps = require(ReplicatedStorage.Shared.Footsteps)
 const Omni = require(ReplicatedStorage.Shared.Omni)
 
 const Utility = {
@@ -50,6 +53,7 @@ const Utility = {
         Dice = Color3.fromRGB(90, 170, 110),
         Log = Color3.fromRGB(150, 120, 90),
         Omni = Color3.fromRGB(51, 51, 221),
+        Emotes = Color3.fromRGB(230, 120, 170),
     },
 }
 
@@ -131,6 +135,7 @@ function Utility.start()
     Started = true
     Settings.start()
     HeadLook.start()
+    Footsteps.start()
     VFX.start()
     MetaVision.start()
     Collisions.start()
@@ -144,8 +149,8 @@ function Utility.start()
         DisplayOrder = 4,
     }) :: ScreenGui
     Gui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
-    SidebarView:Open().Parent = Gui
-    SettingsView:Open().Parent = Gui
+    UI.mount("Sidebar", Gui)
+    UI.mount("Settings", Gui)
     Sidebar.attach(SidebarView)
 
     Sidebar.addButton({
@@ -254,6 +259,18 @@ function Utility.start()
         end,
     })
 
+    Emotes.start()
+    Sidebar.addButton({
+        Id = "Emotes",
+        Text = "emotes",
+        Icon = Images.get("SidebarEmotes"),
+        Color = Utility.Colors.Emotes,
+        Order = 6.5,
+        pressed = function()
+            Emotes.toggle()
+        end,
+    })
+
     Ruler.start()
     Sidebar.addButton({
         Id = "Ruler",
@@ -344,6 +361,9 @@ function Utility.start()
     SettingsView.Dirty(Settings.dirty())
     Subzones.start()
 
+    PropControl.setGate(function(): string?
+        return if ToolsClient.current() then "Put your tool away to build" else nil
+    end)
     PropControl.Shown:Connect(function(Value: boolean)
         if Value then
             Ruler.set(false)
@@ -373,6 +393,7 @@ function Utility.start()
         Omni.show(false)
         Radio.show(false)
         Dice.show(false)
+        Emotes.show(false)
         ActionLog.show(false)
         Ruler.set(false)
         Utility.setHidden(Gui, true)

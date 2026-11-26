@@ -131,7 +131,7 @@ function Page.page(): Kit.Declaration
 
         vision.event("ToolPage", { Mode = "Categories", Title = "tools", Name = "", Detail = "", Equipping = false }, function(Self: Instance, _, View: Bridges.ToolPageView)
             Kit.label(Self, "Tools_Title", View.Title)
-            Kit.setButton(Self, "Tool_Equip", if View.Equipping then "cancel" else "equip", if View.Equipping then Style.PlateColor else Style.SuccessColor, if View.Equipping then Style.InkColor else Style.SuccessText)
+            Kit.setButton(Self, "Tool_Equip", if View.Equipping then "cancel" else "equip", if View.Equipping then Style.CloseColor else Style.SuccessColor, if View.Equipping then Style.CloseText else Style.SuccessText)
             Kit.show(Self, "Tools_CategorySection", View.Mode == "Categories")
             Kit.show(Self, "Tools_BrowseSection", View.Mode == "Category")
             Kit.show(Self, "Tools_EditSection", View.Mode == "Edit")
@@ -210,7 +210,7 @@ function Page.page(): Kit.Declaration
                     end
                     return Items
                 end, 5),
-                Kit.press("Tool_Equip", "equip", { Size = UDim2.new(1, 0, 0, 54), LayoutOrder = 6 }, Style.SuccessColor, Style.SuccessText, Bridge, "Equip", nil, true, 22),
+                Kit.press("Tool_Equip", "equip", { Size = UDim2.new(1, 0, 0, 54), LayoutOrder = 6 }, Style.SuccessColor, Style.SuccessText, Bridge, "Equip", nil, false, 22),
                 Kit.text("Tool_EquipHint", "equip saves this tool into a hotbar slot", 13, {
                     TextWrapped = true,
                     AutomaticSize = Enum.AutomaticSize.Y,
