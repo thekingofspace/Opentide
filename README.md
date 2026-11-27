@@ -924,3 +924,15 @@ Speeds are in `src/Shared/Movement/init.luau`. The run and crawl animations are 
 There is a test cave next to the spawn. Inside it, it is always night, there is no weather and sounds echo. It uses a subzone called `Cave` in `src/Shared/Utility/Subzones/Zones/Cave.luau`.
 
 Ambient overrides can also change sound settings with `Sound`, like `Sound = { AmbientReverb = Enum.ReverbType.Cave }`.
+
+## Docs site
+
+The docs site lives in `docs/`. There is no build step. `docs/index.html` loads the markdown files and turns them into pages in the browser.
+
+- The home page is `docs/index.md`. The block at the top sets the title and the button. The first page people read is `docs/getting-started.md`.
+- Any other markdown file is a page. `docs/tools.md` opens at `#/tools` and `docs/guide/radio.md` opens at `#/guide/radio`.
+- List pages in `docs/sidebar.md` to put them in the side menu.
+- Site settings like the title, top links and GitHub link are at the top of `docs/index.html`. Colors are in `docs/assets/style.css`.
+- Pages can use `::: tip`, `::: warning`, `::: danger` and `::: details` boxes, closed with `:::`.
+- To preview it, run `python3 -m http.server 8000` inside `docs/` and open http://localhost:8000. Opening the html file directly does not work because browsers block loading the markdown files.
+- To publish it, open the repo on GitHub, go to Settings, then Pages, choose "Deploy from a branch" and pick `main` and the `/docs` folder.
